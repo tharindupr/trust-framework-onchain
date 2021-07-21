@@ -1,0 +1,2 @@
+Installed chaincodes on peer:
+Package ID: deccontract_1:1250212704ac986fc15666b3f1adc5bf433612de899d1c78cf46af81f3647a1b, Label: deccontract_1
