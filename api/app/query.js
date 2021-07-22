@@ -68,7 +68,12 @@ const query = async (channelName, chaincodeName, args, fcn, username, org_name) 
         else if (fcn == "traceTransactionHistory") {
             result = await contract.evaluateTransaction(fcn, args[0]);
         }
-        
+        else if (fcn == "getModel") {
+            result = await contract.evaluateTransaction(fcn, args[0]);
+        }
+        else if (fcn == "traceModel") {
+            result = await contract.evaluateTransaction(fcn, args[0]);
+        }
         console.log(result)
         console.log(`Transaction has been evaluated, result is: ${result.toString()}`);
 

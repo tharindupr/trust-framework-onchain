@@ -7,6 +7,7 @@ gocc/src/github.com/tharindupr/access_control_v2/vendor/*
 gocc/src/github.com/tharindupr/dec/vendor/*
 gocc/src/github.com/tharindupr/identity/vendor/*
 gocc/src/github.com/tharindupr/kpis/vendor/*
+gocc/src/github.com/tharindupr/models/vendor/*
 gocc/src/github.com/golang/*
 gocc/src/github.com/hyperledger/*
 network/bin/logs/*

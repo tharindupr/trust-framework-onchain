@@ -99,6 +99,12 @@ const invokeTransaction = async (channelName, chaincodeName, fcn, args, username
             result = await contract.submitTransaction(fcn, args[0]);
             message = `Successfully added the performance contract`
         } 
+        else if (fcn == "createModel") {
+            console.log("=========createModel========")
+            console.log(fcn)
+            result = await contract.submitTransaction(fcn, args[0]);
+            message = `Successfully added the model`
+        } 
         else {
             return `Invocation function not found. Function is ${fcn}`
         }
