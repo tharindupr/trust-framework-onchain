@@ -1,5 +1,4 @@
 Installed chaincodes on peer:
-Package ID: deccontract_1:1250212704ac986fc15666b3f1adc5bf433612de899d1c78cf46af81f3647a1b, Label: deccontract_1
-Package ID: modelcontract_1:307333859b6bebf6e700b9ba1660644caf97ce397ecc71454e93a185d1040284, Label: modelcontract_1
-Package ID: modelcontract_2:ef02da7c65e3f0e3cf3cc25cfb400abf84ae6ca95bba6f534697aef22a4444ad, Label: modelcontract_2
-Package ID: modelcontract_3:d24440f329ca0ef0f66e312fcc4bb8632bbe6ed6d3374104dc7e5513001c5c0f, Label: modelcontract_3
+Package ID: identitycontract_1:0816a29420be9b1c1f8f1992e3df3dc2597a3f056eec17bdc62e2cbb0de885c0, Label: identitycontract_1
+Package ID: modelcontract_1:36717bd547297409bd60fb5a5e1b706ee54d1e06eb3c6634a2ee46daec2f14ee, Label: modelcontract_1
+Package ID: modelcontract_2:93c8718702c9ec5fcbc4a6aebcbe7c2a46e3b213aee7ee156c1a5a99846988e6, Label: modelcontract_2

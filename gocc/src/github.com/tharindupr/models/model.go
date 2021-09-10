@@ -18,6 +18,33 @@ import (
 type SmartContract struct {
 }
 
+type Parameters struct{
+	Beta float64 `json:Beta`
+	Gamma float64 `json:Gamma`
+	AlphaPositive float64 `json:AlphaPositive`
+	AlphaNegative float64 `json:AlphaNegative`
+}
+
+// type TrustParameters struct{
+	
+// }
+
+type Prediction struct{
+	NodeID string `json:NodeID`
+	Timestamp string `json:Timestamp`
+	OutPut map[string]bool   `json:"OutPut"`
+}
+
+type Reputation struct{
+	NodeID string `json:NodeID`
+	QoSReputation float64 `json:QoSReputations`
+	QoSReputations map[string]float64  `json:QoSReputations`
+	Timestamp string `json:Timestamp`
+	TrueCount map[string]int  `json:TrueCount`
+	FalseCount map[string]int  `json:FalseCount`
+	Counter int `json:Counter`
+	LatestPrediction map[string]bool   `json:"LatestPrediction"`
+}
 
 type Model struct{
 	ModelID string `json:ModelID`
@@ -28,16 +55,33 @@ type Model struct{
 	BenignPrecision float64 `json:BenignPrecision`
 	BenignRecall float64 `json:BenignRecall`
 	Hash string `json:Hash`
-	TrustScore float64 `json:TrustScore`
+	PositiveTrustScore float64 `json:PositiveTrustScore`
+	NegativeTrustScore float64 `json:NegativeTrustScore`
+	TrustComposition string `json:TrustComposition`
 }
 
+const Gamma = 0.6
+const Beta = 2
+const AlphaPositive = -1
+const AlphaNegative = 1
 
-var logger = flogging.MustGetLogger("kpis_cc")
+var logger = flogging.MustGetLogger("models_cc")
+
+
 
 
 // Init ;  Method for initializing smart contract
 func (s *SmartContract) Init(APIstub shim.ChaincodeStubInterface) sc.Response {
 	logger.Infof("Chiancode : datacollection initiated")
+
+	var parameters Parameters
+	parameters.Beta = 2
+	parameters.AlphaPositive = 1
+	parameters.AlphaNegative = -1
+	parameters.Gamma = 0.6
+
+	parametersAsBytes, _ := json.Marshal(parameters)
+	APIstub.PutState("parameters", parametersAsBytes)
 	return shim.Success(nil)
 }
 
@@ -55,7 +99,11 @@ func (s *SmartContract) Invoke(APIstub shim.ChaincodeStubInterface) sc.Response 
 			return s.traceModel(APIstub, args)
 		case "getModel":
 			return s.getModel(APIstub, args)
-	
+		case "reportPrediction":
+			return s.reportPrediction(APIstub, args)
+		case "trustUpdate":
+			return s.trustUpdate(APIstub, args)
+			
 	}
 	return shim.Error("Invoke Function Not Success.")
 }
@@ -70,6 +118,14 @@ func (s *SmartContract) createModel(APIstub shim.ChaincodeStubInterface, args []
 
 	var model Model
 	json.Unmarshal([]byte(args[0]), &model)
+
+
+	var PostiveWeight = 2 * (model.BenignPrecision * model.BenignRecall)/(model.BenignPrecision + model.BenignRecall)
+	var NegativeWeight = 2 * (model.MalciousPrecision * model.MalciousRecall)/(model.MalciousPrecision + model.MalciousRecall)
+
+
+	model.PositiveTrustScore = PostiveWeight * AlphaPositive
+	model.NegativeTrustScore = NegativeWeight * AlphaNegative
 
 	modeldAsBytes, _ := json.Marshal(model)
 	APIstub.PutState(model.ModelID, modeldAsBytes)
@@ -91,11 +147,164 @@ func (s *SmartContract) getModel(APIstub shim.ChaincodeStubInterface, args []str
 	return shim.Success(tAsBytes)
 }
 
-func calcualteModelScores(APIstub shim.ChaincodeStubInterface){
+//update Paramters
+func (s *SmartContract) updateParameters(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	var parameters Parameters
+	json.Unmarshal([]byte(args[0]), &parameters)
 
 
+	parametersAsBytes, _ := json.Marshal(parameters)
+	APIstub.PutState("parameters", parametersAsBytes)
+
+	
+	logger.Infof("Patameters updated successfully")
+	return shim.Success(parametersAsBytes)
 
 }
+
+//add a new detection
+func (s *SmartContract) reportPrediction(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
+
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	var prediction Prediction
+	json.Unmarshal([]byte(args[0]), &prediction)
+
+	predictionAsBytes, _ := json.Marshal(prediction)
+	APIstub.PutState(prediction.NodeID, predictionAsBytes)
+	
+	logger.Infof("Prediction Successfully Added")
+	return shim.Success(predictionAsBytes)
+
+}
+
+
+func (s *SmartContract) trustUpdate(APIstub shim.ChaincodeStubInterface, args []string) sc.Response{
+	
+	if len(args) != 1 {
+		return shim.Error("Incorrect number of arguments. Expecting 1")
+	}
+
+	logger.Infof("Unmarshalling the payload")
+	var prediction Prediction
+	json.Unmarshal([]byte(args[0]), &prediction)
+
+	if prediction.OutPut != nil {
+		var tempModelID string
+		//var M float64
+		var MS float64
+		var QoS float64
+
+		QoS = 0
+		//get the existing reputations of the devices
+		reputation := Reputation{}
+		reputationAsBytes, _ := APIstub.GetState(prediction.NodeID)
+		logger.Infof("Existing Reputation Retrived")
+		if reputationAsBytes == nil {
+			reputation.QoSReputations = make(map[string]float64)
+			reputation.TrueCount = make(map[string]int)
+			reputation.FalseCount = make(map[string]int)
+			reputation.NodeID = prediction.NodeID
+			
+		} else{
+			json.Unmarshal(reputationAsBytes, &reputation)
+		}
+		
+		//increasing the counter for every trust update
+		reputation.Counter++
+
+		//iterating through each model 
+		for index, element := range prediction.OutPut {
+
+			logger.Infof("index " + index)
+			logger.Infof("element " + fmt.Sprint(element))
+			tempModelID = index	
+			logger.Infof("Getting the model metadata from Chain")
+			modelsAsBytes, _ := APIstub.GetState(tempModelID)
+			if modelsAsBytes == nil {
+				return shim.Error("Invalid Model ID " + tempModelID)
+			}
+			model := Model{}
+			json.Unmarshal(modelsAsBytes, &model)
+			logger.Infof("Unmarshaled the model object")
+
+			//if there's no previous reputation
+			
+			//trust boostraping
+			if reputation.LatestPrediction  == nil{
+				logger.Infof("Cold starting the reputation")
+				reputation.TrueCount[tempModelID] = 0
+				reputation.FalseCount[tempModelID] = 0
+				reputation.QoSReputations[tempModelID] = 0.5
+				
+				if element == true{
+					reputation.TrueCount[tempModelID] = 1
+				} else{
+					reputation.FalseCount[tempModelID] = 1
+				}
+
+			} else{
+				logger.Infof("Updating the reputation")
+				//Increasing the reputation count
+				if element == true{
+					reputation.TrueCount[tempModelID]++
+				} else{
+					reputation.FalseCount[tempModelID]++
+				}
+				
+				
+				if reputation.Counter == 2{
+					logger.Infof("Trust update since the count is 5")
+					if reputation.TrueCount[tempModelID] > reputation.FalseCount[tempModelID]{
+						MS = Gamma * model.PositiveTrustScore	
+						reputation.QoSReputations[tempModelID] = (1-Gamma) * reputation.QoSReputations[tempModelID] + MS
+
+					} else{
+						MS = Gamma * model.NegativeTrustScore	
+						reputation.QoSReputations[tempModelID] = (1-Gamma) * reputation.QoSReputations[tempModelID] + MS
+					}
+					
+					reputation.TrueCount[tempModelID] = 0
+					reputation.FalseCount[tempModelID] = 0
+					
+				} else{
+					logger.Infof("Skipping trust update since the count is not 5")
+					reputation.QoSReputations[tempModelID] = reputation.QoSReputations[tempModelID]
+
+				}
+				
+			}
+			logger.Infof("Reputation calculated for model " + tempModelID)
+			logger.Infof("Latest Reputation " + fmt.Sprint(reputation.QoSReputations[tempModelID]))
+			//Calcualtiong R^q(w) QoS reputation of a device at a given time
+			QoS = QoS + reputation.QoSReputations[tempModelID] 
+		}
+
+		if reputation.Counter == 2{
+			reputation.Counter = 0
+		}
+		
+		logger.Infof("Finished iterations through the models")
+		reputation.QoSReputation = QoS/ float64(len(reputation.QoSReputations))
+		reputation.Timestamp = prediction.Timestamp
+		reputation.LatestPrediction = prediction.OutPut
+		reputationAsBytes, _ = json.Marshal(reputation)
+		APIstub.PutState(prediction.NodeID, reputationAsBytes)
+		logger.Infof("Prediction Successfully Added")
+		return shim.Success(reputationAsBytes)
+	}
+
+	return shim.Error("Prediction Payload is Null")
+
+}
+
 
 
 func (t *SmartContract) traceModel(stub shim.ChaincodeStubInterface, args []string) sc.Response {
@@ -163,376 +372,6 @@ func (t *SmartContract) traceModel(stub shim.ChaincodeStubInterface, args []stri
 	return shim.Success(buffer.Bytes())
 }
 
-
-
-// //update model
-// func (s *SmartContract) updateModel(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-// 	if len(args) != 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-
-// 	//checking whether the key exists
-// 	modelAsBytes, _ := APIstub.GetState(args[0])
-// 	if modelAsBytes == nil {
-// 		return shim.Error("Key Doesn't Exist")
-// 	}
-
-
-
-// 	energyrecord := EnergyRecord{}
-// 	json.Unmarshal(energyRecordAsBytes, &energyrecord)
-
-// 	var model Model
-// 	json.Unmarshal([]byte(args[1]), &model)
-
-// 	modeldAsBytes, _ := json.Marshal(model)
-// 	APIstub.PutState(args[0], modeldAsBytes)
-
-	
-// 	logger.Infof("Model Successfully Added")
-// 	return shim.Success(modeldAsBytes)
-
-// }
-
-
-
-// //creating a digital energy certificate
-// func (s *SmartContract) createEnergyRecord(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-	
-// 	if len(args) != 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-
-// 	var data EnergyRecord
-// 	json.Unmarshal([]byte(args[0]), &data)
-	
-// 	// getting the object
-// 	arguments := make([][]byte, 2)
-// 	arguments[0] = []byte("getAsset")
-// 	arguments[1] = []byte(data.BuildingID)
-
-// 	logger.Infof("Getting the identity of the asset")
-// 	response := APIstub.InvokeChaincode("identitycontract", arguments, "mychannel")
-
-// 	logger.Infof("Received a response from Identity Contract ")
-// 	logger.Infof(fmt.Sprint(response.Status))
-// 	logger.Infof(fmt.Sprint(response.Payload))
-// 	if response.Status != shim.OK || len(response.Payload)==0{
-// 		return shim.Error("Invalid Building ID")
-// 	}
-
-
-// 	var index = data.BuildingID + strconv.Itoa(data.Year) + strconv.Itoa(data.Month)
-
-// 	energyRecordAsBytes, _ := json.Marshal(data)
-// 	APIstub.PutState(index, energyRecordAsBytes)
-
-// 	//calcualte energy KPIs
-// 	if data.Status == true{
-// 		calculateKPIs(APIstub, data)
-// 	}
-	
-// 	logger.Infof("Successfully Added")
-// 	return shim.Success(energyRecordAsBytes)
-// }
-
-
-// //Adding weekly data
-// func (s *SmartContract) addWeeklyEnergyData(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-// 	if len(args) != 3 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 2")
-// 	}
-
-// 	//checking whether the key exists
-// 	energyRecordAsBytes, _ := APIstub.GetState(args[0])
-// 	if energyRecordAsBytes == nil {
-// 		return shim.Error("Key Doesn't Exist")
-// 	}
-
-
-// 	energyrecord := EnergyRecord{}
-// 	json.Unmarshal(energyRecordAsBytes, &energyrecord)
-
-// 	var weeklydata = map[string]float64{};
-// 	json.Unmarshal([]byte(args[2]), &weeklydata)
-
-// 	if args[1] == "Week1" {
-// 		energyrecord.Readings.Week1 = weeklydata
-// 	} else if args[1] == "Week2" {
-// 		energyrecord.Readings.Week2 = weeklydata
-// 	} else if args[1] == "Week3" {
-// 		energyrecord.Readings.Week3 = weeklydata
-// 	} else if args[1] == "Week4" {
-// 		energyrecord.Readings.Week4 = weeklydata
-// 	} else if args[1] == "Week5" {
-// 		energyrecord.Readings.Week5 = weeklydata
-// 	} else {
-// 		return shim.Error("Invalid Week")
-// 	}
-
-// 	var index = energyrecord.BuildingID + strconv.Itoa(energyrecord.Year) + strconv.Itoa(energyrecord.Month)
-
-// 	//check whether month energy records are completed
-// 	if energyrecord.WeeksPerMonth == 4 && energyrecord.Readings.Week1 != nil && energyrecord.Readings.Week2 != nil && energyrecord.Readings.Week3 != nil && energyrecord.Readings.Week4 != nil{
-		
-// 		energyrecord.Status = true
-// 	}
-
-// 	if energyrecord.Readings.Week1 != nil && energyrecord.Readings.Week2 != nil && energyrecord.Readings.Week3 != nil && energyrecord.Readings.Week4 != nil && energyrecord.Readings.Week5 != nil{
-		
-// 		energyrecord.Status = true
-// 	}
-
-
-// 	//calcualte energy KPIs
-// 	if energyrecord.Status == true{
-
-// 		calculateKPIs(APIstub, energyrecord)
-
-// 	}
-
-// 	energyRecordAsBytes, _ = json.Marshal(energyrecord)
-// 	APIstub.PutState(index, energyRecordAsBytes)
-
-	
-// 	return shim.Success(energyRecordAsBytes)
-// }
-
-
-// func calculateKPIs(APIstub shim.ChaincodeStubInterface, energyrecord EnergyRecord){
-
-// 	var totalUsageByEnergy map[string]float64 = calculateMonthlyUsage(energyrecord)
-// 	var index = energyrecord.BuildingID + strconv.Itoa(energyrecord.Year) + strconv.Itoa(energyrecord.Month)
-// 	logger.Infof(fmt.Sprint(totalUsageByEnergy))
-
-// 	var totalUsage float64 = 0
-// 	for _, value := range totalUsageByEnergy {
-
-// 		totalUsage = totalUsage + value
-// 	}
-
-// 	var kpi KPI
-// 	//getting the performance contract
-// 	logger.Infof("Getting the performance contract of the ID " + energyrecord.BuildingID)
-// 	contractAsBytes, _ := APIstub.GetState(energyrecord.BuildingID)
-// 	logger.Infof(fmt.Sprint(contractAsBytes))
-// 	if contractAsBytes == nil {
-// 		// if contract not available
-// 		var telem Telemetry
-// 		kpi.TotalUsage = totalUsage
-// 		kpi.TotalReduction = 0
-// 		kpi.TotalTargetUsage = 0
-// 		kpi.WeeklyReductions = telem
-// 		kpi.Baseline = 0
-	
-// 	} else{
-// 		contract := Perfomance{}
-// 		json.Unmarshal(contractAsBytes, &contract)
-// 		kpi.TotalUsage = totalUsage
-// 		kpi.TotalReduction = (contract.TotalTargetUsage - totalUsage)/contract.TotalTargetUsage * 100
-// 		kpi.TotalTargetUsage = contract.TotalTargetUsage 
-// 		kpi.Baseline = contract.Baseline 
-// 		kpi.IndividualTargetUsage = contract.IndividualTargetUsage
-// 		kpi.IndividualBaseline = contract.IndividualBaseline
-// 		kpi.WeeklyReductions = calculateWeeklyReduction(energyrecord.Readings, contract.IndividualTargetUsage)
-
-// 	}
-	
-// 	kpi.BuildingID = energyrecord.BuildingID
-// 	kpi.Year = energyrecord.Year
-// 	kpi.Month = energyrecord.Month
-
-	
-
-// 	kpiAsBytes, _ := json.Marshal(kpi)
-// 	APIstub.PutState("kpi_"+index, kpiAsBytes)
-
-// }
-
-
-// //creating a digital energy certificate
-// func (s *SmartContract) createPerformanceContract(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-	
-// 	if len(args) != 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-
-// 	//creating an object from the attribute array
-// 	//var jsonObj interface{}
-// 	var perf Perfomance
-// 	json.Unmarshal([]byte(args[0]), &perf)
-
-
-
-// 	performanceAsBytes, _ := json.Marshal(perf)
-// 	APIstub.PutState(perf.BuildingID, performanceAsBytes)
-
-// 	logger.Infof("Successfully Added")
-// 	return shim.Success(performanceAsBytes)
-// }
-
-
-
-// //getRecordByKey
-// func (s *SmartContract) getRecordByKey(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-// 	if len(args) != 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-
-// 	tAsBytes, _ := APIstub.GetState(args[0])
-// 	return shim.Success(tAsBytes)
-// }
-
-
-
-
-
-// func calculateMonthlyUsage(energyrecord EnergyRecord) map[string]float64 {
-
-// 	logger.Infof("Inside the calculateMonthlyUsage Function")
-
-// 	var weeklydata = [5] map[string]float64 {energyrecord.Readings.Week1, energyrecord.Readings.Week2, energyrecord.Readings.Week3, energyrecord.Readings.Week4, energyrecord.Readings.Week5}
-// 	energy := make(map[string]float64)
-
-// 	logger.Infof("Begin Iteration")
-// 	logger.Infof(fmt.Sprint(weeklydata[0]))
-
-// 	for _, week := range weeklydata {
-// 		if week != nil{
-// 			for key, value := range week {
-
-// 				if _, ok := energy[key]; ok {
-// 					energy[key] = energy[key] + value
-// 				} else {
-// 					energy[key] = value
-// 				}
-
-// 			}
-// 		}
-// 	}
-// 	logger.Infof("Finished Iterations")
-
-// 	return energy
-// }
-
-
-// func calculateWeeklyReduction(readings Telemetry, benchmark Telemetry) Telemetry{
-
-// 	logger.Infof("Calculating weekly reductions")
-
-// 	var weeklyreductions [5] map[string]float64 
-// 	var weeklydata = [5] map[string]float64 {readings.Week1, readings.Week2, readings.Week3, readings.Week4, readings.Week5}
-// 	var weeklybenchmark = [5] map[string]float64 {benchmark.Week1, benchmark.Week2, benchmark.Week3, benchmark.Week4, benchmark.Week5}
-
-// 	for index, week := range weeklydata {
-// 		temp := make(map[string]float64)
-// 		if week != nil && weeklybenchmark[index] !=nil{
-// 			for key, value := range week {
-
-// 				temp[key] = (weeklybenchmark[index][key]-value)/weeklybenchmark[index][key] * 100
-
-// 			}
-// 			weeklyreductions[index] = temp
-// 		} else{
-// 			weeklyreductions[index] = nil
-// 		}
-// 	}
-
-// 	var weeklyReductionOutput Telemetry
-// 	weeklyReductionOutput.Unit = "kwh"
-// 	weeklyReductionOutput.Week1 = weeklyreductions[0]
-// 	weeklyReductionOutput.Week2 = weeklyreductions[1]
-// 	weeklyReductionOutput.Week3 = weeklyreductions[2]
-// 	weeklyReductionOutput.Week4 = weeklyreductions[3]
-// 	weeklyReductionOutput.Week5 = weeklyreductions[4]
-
-// 	return weeklyReductionOutput
-// }
-
-// func (t *SmartContract) traceTransactionHistory(stub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-// 	if len(args) < 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-
-// 	ID := args[0]
-// 	logger.Infof("searching for the Perf Contract with id %s", args[0])
-// 	resultsIterator, err := stub.GetHistoryForKey(ID)
-// 	if err != nil {
-// 		return shim.Error(err.Error())
-// 	}
-// 	defer resultsIterator.Close()
-
-// 	// buffer is a JSON array containing historic values for the marble
-// 	var buffer bytes.Buffer
-// 	buffer.WriteString("[")
-
-// 	bArrayMemberAlreadyWritten := false
-// 	for resultsIterator.HasNext() {
-// 		response, err := resultsIterator.Next()
-
-// 		logger.Infof(string(response.TxId))
-// 		if err != nil {
-// 			return shim.Error(err.Error())
-// 		}
-// 		// Add a comma before array members, suppress it for the first array member
-// 		if bArrayMemberAlreadyWritten == true {
-// 			buffer.WriteString(",")
-// 		}
-// 		buffer.WriteString("{\"TxId\":")
-// 		buffer.WriteString("\"")
-// 		buffer.WriteString(response.TxId)
-// 		buffer.WriteString("\"")
-
-// 		buffer.WriteString(", \"Value\":")
-// 		// if it was a delete operation on given key, then we need to set the
-// 		//corresponding value null. Else, we will write the response.Value
-// 		//as-is (as the Value itself a JSON marble)
-// 		if response.IsDelete {
-// 			buffer.WriteString("null")
-// 		} else {
-// 			buffer.WriteString(string(response.Value))
-// 		}
-
-// 		buffer.WriteString(", \"Timestamp\":")
-// 		buffer.WriteString("\"")
-// 		buffer.WriteString(time.Unix(response.Timestamp.Seconds, int64(response.Timestamp.Nanos)).String())
-// 		buffer.WriteString("\"")
-
-// 		buffer.WriteString(", \"IsDelete\":")
-// 		buffer.WriteString("\"")
-// 		buffer.WriteString(strconv.FormatBool(response.IsDelete))
-// 		buffer.WriteString("\"")
-
-// 		buffer.WriteString("}")
-// 		bArrayMemberAlreadyWritten = true
-// 	}
-// 	buffer.WriteString("]")
-
-// 	logger.Infof("- getHistoryforDEC returning:\n%s\n", buffer.String())
-
-// 	return shim.Success(buffer.Bytes())
-// }
-
-
-// // query Access
-// func (s *SmartContract) queryAccessRecords(APIstub shim.ChaincodeStubInterface, args []string) sc.Response {
-
-// 	if len(args) != 1 {
-// 		return shim.Error("Incorrect number of arguments. Expecting 1")
-// 	}
-// 	logger.Infof("Quering the ID %s", args[0])
-// 	asBytes, _ := APIstub.GetState(args[0])
-
-// 	access := AccessRecord{}
-// 	json.Unmarshal(asBytes, &access)
-// 	logger.Infof("Sending the object with the this %s", access.Subject)
-// 	return shim.Success(asBytes)
-// }
-
 // The main function is only relevant in unit test mode. Only included here for completeness.
 func main() {
 
@@ -542,5 +381,7 @@ func main() {
 		fmt.Printf("Error creating new Smart Contract: %s", err)
 	}
 }
+
+
 
 

@@ -105,6 +105,18 @@ const invokeTransaction = async (channelName, chaincodeName, fcn, args, username
             result = await contract.submitTransaction(fcn, args[0]);
             message = `Successfully added the model`
         } 
+        else if (fcn == "reportPrediction") {
+            console.log("=========reportPrediction========")
+            console.log(fcn)
+            result = await contract.submitTransaction(fcn, args[0]);
+            message = `Successfully added the prediction`
+        }
+        else if (fcn == "trustUpdate") {
+            console.log("=========trustUpdate========")
+            console.log(fcn)
+            result = await contract.submitTransaction(fcn, args[0]);
+            message = `Successfully updated trust score`
+        }  
         else {
             return `Invocation function not found. Function is ${fcn}`
         }
