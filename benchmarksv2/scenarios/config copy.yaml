@@ -1,0 +1,115 @@
+test:
+  name: simple
+  description: This is an example benchmark for caliper, to test the backend DLT's
+  workers:
+    type: local
+    number: 5      #number of clients you need to spawn
+  rounds:
+      - label: createAsset
+        description: Read asset benchmark
+        txNumber: 500
+        rateControl: 
+          type: fixed-rate
+          opts:
+            tps: 50
+        workload:
+          module: scenarios/createAsset.js
+          arguments:
+            contractId: identitycontract
+
+      - label: createAsset
+        description: Read asset benchmark
+        txNumber: 500
+        rateControl: 
+          type: fixed-rate
+          opts:
+            tps: 100
+        workload:
+          module: scenarios/createAsset.js
+          arguments:
+            contractId: identitycontract
+      
+      - label: createAsset
+        description: Read asset benchmark
+        txNumber: 500
+        rateControl: 
+          type: fixed-rate
+          opts:
+            tps: 150
+        workload:
+          module: scenarios/createAsset.js
+          arguments:
+            contractId: identitycontract
+
+      - label: createAsset
+        description: Read asset benchmark
+        txNumber: 500
+        rateControl: 
+          type: fixed-rate
+          opts:
+            tps: 200
+        workload:
+          module: scenarios/createAsset.js
+          arguments:
+            contractId: identitycontract
+
+      - label: createAsset
+        description: Read asset benchmark
+        txNumber: 500
+        rateControl: 
+          type: fixed-rate
+          opts:
+            tps: 250
+        workload:
+          module: scenarios/createAsset.js
+          arguments:
+            contractId: identitycontract
+
+      # - label: getAsset
+      #   description: Read asset benchmark
+      #   txNumber: 100
+      #   rateControl: 
+      #     type: fixed-rate
+      #     opts:
+      #       transactionLoad: 50
+      #   workload:
+      #     module: scenarios/readAsset.js
+      #     arguments:
+      #       contractId: identitycontract
+
+      # - label: updateAsset
+      #   description: Read asset benchmark
+      #   txNumber: 100
+      #   rateControl: 
+      #     type: fixed-rate
+      #     opts:
+      #       transactionLoad: 50
+      #   workload:
+      #     module: scenarios/updateAsset.js
+      #     arguments:
+      #       contractId: identitycontract
+
+      # - label: traceAsset
+      #   description: Read asset benchmark
+      #   txNumber: 100
+      #   rateControl: 
+      #     type: fixed-rate
+      #     opts:
+      #       transactionLoad: 50
+      #   workload:
+      #     module: scenarios/traceAsset.js
+      #     arguments:
+      #       contractId: identitycontract
+
+
+monitor:
+  type:
+  - docker
+  docker:  
+    containers:
+    - http://localhost:7050
+    - http://localhost:8050
+    - http://localhost:9050
+    - http://localhost:10050
+    - http://localhost:11050
+      
