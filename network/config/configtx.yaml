@@ -103,6 +103,106 @@ Organizations:
             # encoded in the genesis block in the Application section context
             - Host: peer0.org2.digiblocks.com
               Port: 9051
+    - &Org3
+        # DefaultOrg defines the organization which is used in the sampleconfig
+        # of the fabric.git development environment
+        Name: Org3MSP
+
+        # ID to load the MSP definition as
+        ID: Org3MSP
+
+        MSPDir: crypto-config/peerOrganizations/org3.digiblocks.com/msp
+
+        # Policies defines the set of policies at this level of the config tree
+        # For organization policies, their canonical path is usually
+        #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Org3MSP.admin', 'Org3MSP.peer', 'Org3MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Org3MSP.admin', 'Org3MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Org3MSP.admin')"
+            Endorsement:
+                Type: Signature
+                Rule: "OR('Org3MSP.peer')"
+
+        AnchorPeers:
+            # AnchorPeers defines the location of peers which can be used
+            # for cross org gossip communication.  Note, this value is only
+            # encoded in the genesis block in the Application section context
+            - Host: peer0.org3.digiblocks.com
+              Port: 11051
+    - &Org4
+        # DefaultOrg defines the organization which is used in the sampleconfig
+        # of the fabric.git development environment
+        Name: Org4MSP
+
+        # ID to load the MSP definition as
+        ID: Org4MSP
+
+        MSPDir: crypto-config/peerOrganizations/org4.digiblocks.com/msp
+
+        # Policies defines the set of policies at this level of the config tree
+        # For organization policies, their canonical path is usually
+        #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Org4MSP.admin', 'Org4MSP.peer', 'Org4MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Org4MSP.admin', 'Org4MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Org4MSP.admin')"
+            Endorsement:
+                Type: Signature
+                Rule: "OR('Org4MSP.peer')"
+
+        AnchorPeers:
+            # AnchorPeers defines the location of peers which can be used
+            # for cross org gossip communication.  Note, this value is only
+            # encoded in the genesis block in the Application section context
+            - Host: peer0.org4.digiblocks.com
+              Port: 13051
+
+    - &Org5
+        # DefaultOrg defines the organization which is used in the sampleconfig
+        # of the fabric.git development environment
+        Name: Org5MSP
+
+        # ID to load the MSP definition as
+        ID: Org5MSP
+
+        MSPDir: crypto-config/peerOrganizations/org5.digiblocks.com/msp
+
+        # Policies defines the set of policies at this level of the config tree
+        # For organization policies, their canonical path is usually
+        #   /Channel/<Application|Orderer>/<OrgName>/<PolicyName>
+        Policies:
+            Readers:
+                Type: Signature
+                Rule: "OR('Org5MSP.admin', 'Org5MSP.peer', 'Org5MSP.client')"
+            Writers:
+                Type: Signature
+                Rule: "OR('Org5MSP.admin', 'Org5MSP.client')"
+            Admins:
+                Type: Signature
+                Rule: "OR('Org5MSP.admin')"
+            Endorsement:
+                Type: Signature
+                Rule: "OR('Org5MSP.peer')"
+
+        AnchorPeers:
+            # AnchorPeers defines the location of peers which can be used
+            # for cross org gossip communication.  Note, this value is only
+            # encoded in the genesis block in the Application section context
+            - Host: peer0.org5.digiblocks.com
+              Port: 15051
 
 ################################################################################
 #
@@ -310,6 +410,9 @@ Profiles:
             Organizations:
                 - *Org1
                 - *Org2
+                - *Org3
+                - *Org4
+                - *Org5
             Capabilities:
                 <<: *ApplicationCapabilities
 
@@ -334,20 +437,20 @@ Profiles:
                   Port: 9050
                   ClientTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer3.digiblocks.com/tls/server.crt
                   ServerTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer3.digiblocks.com/tls/server.crt
-                # - Host: orderer4.digiblocks.com
-                #   Port: 10050
-                #   ClientTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer4.digiblocks.com/tls/server.crt
-                #   ServerTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer4.digiblocks.com/tls/server.crt
-                # - Host: orderer5.digiblocks.com
-                #   Port: 11050
-                #   ClientTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer5.digiblocks.com/tls/server.crt
-                #   ServerTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer5.digiblocks.com/tls/server.crt
+                - Host: orderer4.digiblocks.com
+                  Port: 10050
+                  ClientTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer4.digiblocks.com/tls/server.crt
+                  ServerTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer4.digiblocks.com/tls/server.crt
+                - Host: orderer5.digiblocks.com
+                  Port: 11050
+                  ClientTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer5.digiblocks.com/tls/server.crt
+                  ServerTLSCert: crypto-config/ordererOrganizations/digiblocks.com/orderers/orderer5.digiblocks.com/tls/server.crt
             Addresses:
                 - orderer.digiblocks.com:7050
                 - orderer2.digiblocks.com:8050
                 - orderer3.digiblocks.com:9050
-                # - orderer4.digiblocks.com:10050
-                # - orderer5.digiblocks.com:11050
+                - orderer4.digiblocks.com:10050
+                - orderer5.digiblocks.com:11050
 
             Organizations:
             - *OrdererOrg
@@ -358,3 +461,6 @@ Profiles:
                 Organizations:
                 - *Org1
                 - *Org2
+                - *Org3
+                - *Org4
+                - *Org5
